@@ -37,10 +37,13 @@ function createRoom(gameType, aiMode) {
     id = makeRoomId();
   }
   const base = createInitialRoomState(normalized);
+  const matchScore = {};
+  seatOrder(normalized).forEach((side) => { matchScore[side] = 0; });
   const room = {
     id,
     gameType: normalized,
     players: {},
+    usernames: {},
     status: base.status,
     currentTurn: base.currentTurn,
     winner: base.winner,
@@ -53,6 +56,7 @@ function createRoom(gameType, aiMode) {
     lastMove: base.lastMove,
     updatedAt: base.updatedAt,
     score: null,
+    matchScore,
     sockets: new Map(),
     ai: aiMode || false,
   };
@@ -62,6 +66,7 @@ function createRoom(gameType, aiMode) {
   if (room.ai) {
     const aiSide = seatOrder(normalized)[1];
     room.players[aiSide] = "AI";
+    room.usernames[aiSide] = "电脑";
     room.resultText = "练习模式";
     ensureGameReady(room);
   }
@@ -69,14 +74,16 @@ function createRoom(gameType, aiMode) {
   return room;
 }
 
-function attachPlayer(room, clientId) {
+function attachPlayer(room, clientId, username) {
   let side = seatOrder(room.gameType).find((seat) => room.players[seat] === clientId) || null;
   if (side) {
+    if (username) room.usernames[side] = username;
     return side;
   }
   const openSeat = seatOrder(room.gameType).find((seat) => !room.players[seat]);
   if (openSeat) {
     room.players[openSeat] = clientId;
+    room.usernames[openSeat] = username || "未知";
     side = openSeat;
     ensureGameReady(room);
     return side;
@@ -218,12 +225,27 @@ function findClientSide(room, clientId) {
   return seatOrder(room.gameType).find((seat) => room.players[seat] === clientId) || null;
 }
 
-function ensureRoomClient(room, clientId) {
-  const side = attachPlayer(room, clientId);
+function ensureRoomClient(room, clientId, username) {
+  const previousPlayerCount = seatOrder(room.gameType).filter((s) => room.players[s]).length;
+  const side = attachPlayer(room, clientId, username);
   if (side) {
+    const currentPlayerCount = seatOrder(room.gameType).filter((s) => room.players[s]).length;
     pushRoomState(room);
+    if (currentPlayerCount > previousPlayerCount && !room.ai) {
+      announceJoin(room, side);
+    }
   }
   return side;
+}
+
+function announceJoin(room, side) {
+  for (const [clientId, sockets] of room.sockets.entries()) {
+    const payload = `event: notify\ndata: ${JSON.stringify({ type: "join", username: room.usernames[side] || "对手" })}\n\n`;
+    for (const socket of sockets) {
+      try { socket.write(payload); } catch (err) { sockets.delete(socket); }
+    }
+    if (sockets.size === 0) room.sockets.delete(clientId);
+  }
 }
 
 async function handleCreateRoom(req, res) {
@@ -235,7 +257,7 @@ async function handleCreateRoom(req, res) {
     return;
   }
   const room = createRoom(gameType, body.ai);
-  const side = ensureRoomClient(room, clientId);
+  const side = ensureRoomClient(room, clientId, body.username);
   const snapshot = buildSnapshot(room, clientId);
   sendJson(res, 200, {
     ok: true,
@@ -259,7 +281,7 @@ async function handleJoinRoom(req, res) {
     sendJson(res, 404, { ok: false, message: "房间不存在。" });
     return;
   }
-  ensureRoomClient(room, clientId);
+  ensureRoomClient(room, clientId, body.username);
   const side = findClientSide(room, clientId);
   sendJson(res, 200, {
     ok: true,
@@ -304,6 +326,9 @@ async function handleMove(req, res) {
     sendJson(res, 400, result);
     return;
   }
+  if (room.status === "finished" && room.winner && room.matchScore) {
+    room.matchScore[room.winner] = (room.matchScore[room.winner] || 0) + 1;
+  }
   pushRoomState(room);
   if (room.ai && room.status === "playing") {
     triggerAiMove(room);
@@ -347,11 +372,41 @@ async function handleAction(req, res) {
     sendJson(res, 400, result);
     return;
   }
+  if (room.status === "finished" && room.winner && room.matchScore) {
+    room.matchScore[room.winner] = (room.matchScore[room.winner] || 0) + 1;
+  }
   pushRoomState(room);
   if (room.ai && room.status === "playing") {
     triggerAiMove(room);
   }
   sendJson(res, 200, { ok: true, snapshot: buildSnapshot(room, clientId) });
+}
+
+function handleLeaveRoom(req, res) {
+  parseJsonBody(req).then((body) => {
+    const roomId = String(body.roomId || "").trim().toUpperCase();
+    const clientId = String(body.clientId || "").trim();
+    const room = rooms.get(roomId);
+    if (!room) {
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+    const side = findClientSide(room, clientId);
+    if (side) {
+      room.players[side] = null;
+      room.usernames[side] = null;
+    }
+    const hasPlayers = seatOrder(room.gameType).some((s) => room.players[s]);
+    if (!hasPlayers) {
+      rooms.delete(roomId);
+    } else {
+      room.status = "waiting";
+      room.resultText = "等待对手加入。";
+    }
+    room.updatedAt = Date.now();
+    pushRoomState(room);
+    sendJson(res, 200, { ok: true });
+  }).catch(() => sendJson(res, 400, { ok: false }));
 }
 
 function handleEvents(req, res, url) {
@@ -455,6 +510,10 @@ function route(req, res) {
     handleJoinRoom(req, res).catch((err) => {
       sendJson(res, 500, { ok: false, message: err.message });
     });
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/api/room/leave") {
+    handleLeaveRoom(req, res);
     return;
   }
   if (req.method === "POST" && url.pathname === "/api/move") {

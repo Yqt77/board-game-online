@@ -27,6 +27,7 @@ const state = {
   pollTimer: null,
   selected: null,
   toastTimer: null,
+  notifyTimer: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -34,7 +35,6 @@ const $ = (id) => document.getElementById(id);
 const dom = {
   roomInput: $("roomInput"),
   joinBtn: $("joinBtn"),
-  copyLinkBtn: $("copyLinkBtn"),
   restartBtn: $("restartBtn"),
   passBtn: $("passBtn"),
   resignBtn: $("resignBtn"),
@@ -46,6 +46,7 @@ const dom = {
   turnBadge: $("turnBadge"),
   myPlayerTag: $("myPlayerTag"),
   opponentPlayerTag: $("opponentPlayerTag"),
+  matchScoreDisplay: $("matchScoreDisplay"),
   statusText: $("statusText"),
   scoreBlock: $("scoreBlock"),
   boardTitle: $("boardTitle"),
@@ -56,6 +57,13 @@ const dom = {
   toast: $("toast"),
   gameBar: $("gameBar"),
   boardActions: $("boardActions"),
+  notificationOverlay: $("notificationOverlay"),
+  notificationText: $("notificationText"),
+  winnerModal: $("winnerModal"),
+  winnerTitle: $("winnerTitle"),
+  winnerText: $("winnerText"),
+  continueBtn: $("continueBtn"),
+  exitBtn: $("exitBtn"),
 };
 
 const GAME_LABELS = {
@@ -133,7 +141,8 @@ function updatePlayerInfo(snapshot) {
   }
   const opponentSide = mySide ? seatNames.find((s) => s !== mySide) : null;
   if (opponentSide && snapshot.players[opponentSide]) {
-    dom.opponentPlayerTag.textContent = `对方 (${sideLabel(opponentSide)})`;
+    const oppName = (snapshot.usernames && snapshot.usernames[opponentSide]) || "对方";
+    dom.opponentPlayerTag.textContent = `${oppName} (${sideLabel(opponentSide)})`;
   } else {
     dom.opponentPlayerTag.textContent = "等待加入";
   }
@@ -191,10 +200,17 @@ function updateRoomInfo(snapshot) {
 
   updatePlayerInfo(snapshot);
 
+  if (snapshot.matchScore) {
+    const seatNames = snapshot.seatNames || ["black", "white"];
+    dom.matchScoreDisplay.textContent = `${snapshot.matchScore[seatNames[0]] || 0} : ${snapshot.matchScore[seatNames[1]] || 0}`;
+    dom.matchScoreDisplay.classList.remove("hidden");
+  } else {
+    dom.matchScoreDisplay.classList.add("hidden");
+  }
+
   const canAct = Boolean(snapshot.yourSide && snapshot.status === "playing");
   dom.passBtn.classList.toggle("hidden", !(snapshot.gameType === "go" && canAct));
   dom.resignBtn.classList.toggle("hidden", !canAct);
-  dom.copyLinkBtn.classList.toggle("hidden", Boolean(snapshot.ai));
 
   if (snapshot.gameType === "go" && snapshot.status === "finished" && snapshot.score) {
     dom.scoreBlock.classList.remove("hidden");
@@ -293,7 +309,9 @@ function renderBoard(snapshot) {
 }
 
 function render(snapshot) {
+  const prevSnapshot = state.snapshot;
   state.snapshot = snapshot;
+
   if (snapshot?.roomId) {
     state.roomId = snapshot.roomId;
     localStorage.setItem(roomIdKey, snapshot.roomId);
@@ -301,6 +319,13 @@ function render(snapshot) {
     url.searchParams.set("room", snapshot.roomId);
     window.history.replaceState({}, "", url);
   }
+
+  if (snapshot && snapshot.status === "finished") {
+    if (!prevSnapshot || prevSnapshot.status !== "finished") {
+      showWinnerModal(snapshot);
+    }
+  }
+  prevFinished = snapshot && snapshot.status === "finished";
 
   if (snapshot) {
     const selected = state.selected;
@@ -399,6 +424,13 @@ function openStream(roomId) {
     render(snapshot);
   });
 
+  es.addEventListener("notify", (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "join") {
+      showNotification(`${data.username} 加入了房间`, 1200);
+    }
+  });
+
   es.onopen = () => {
     setConnection("在线", "online");
   };
@@ -410,10 +442,16 @@ function openStream(roomId) {
   startPolling(roomId);
 }
 
+function getUsername() {
+  const session = getSession();
+  return session ? session.username : "";
+}
+
 async function createRoom(gameType) {
   const data = await postJson("/api/room/create", {
     gameType,
     clientId: state.clientId,
+    username: getUsername(),
   });
   render(data.snapshot);
   openStream(data.roomId);
@@ -423,6 +461,7 @@ async function createPracticeRoom(gameType) {
   const data = await postJson("/api/room/create", {
     gameType,
     clientId: state.clientId,
+    username: getUsername(),
     ai: true,
   });
   render(data.snapshot);
@@ -433,6 +472,7 @@ async function joinRoom(roomId) {
   const data = await postJson("/api/room/join", {
     roomId,
     clientId: state.clientId,
+    username: getUsername(),
   });
   render(data.snapshot);
   openStream(data.roomId);
@@ -553,24 +593,69 @@ async function handleJoinClick() {
   }
 }
 
+let prevFinished = false;
+
+function showNotification(text, duration) {
+  dom.notificationText.textContent = text;
+  dom.notificationOverlay.classList.remove("hidden");
+  clearTimeout(state.notifyTimer);
+  state.notifyTimer = setTimeout(() => {
+    dom.notificationOverlay.classList.add("hidden");
+  }, duration || 1200);
+}
+
+function showWinnerModal(snapshot) {
+  if (snapshot.draw) {
+    dom.winnerTitle.textContent = "平局";
+    dom.winnerText.textContent = "本局为平局。";
+  } else {
+    const side = snapshot.winner;
+    let name = "";
+    if (snapshot.ai) {
+      name = side === snapshot.yourSide ? "你" : "电脑";
+    } else if (snapshot.usernames && snapshot.usernames[side]) {
+      name = snapshot.usernames[side];
+    } else {
+      name = sideLabel(side);
+    }
+    dom.winnerTitle.textContent = "对局结束";
+    dom.winnerText.textContent = `${name} 获胜！`;
+  }
+  dom.winnerModal.classList.remove("hidden");
+}
+
+function hideWinnerModal() {
+  dom.winnerModal.classList.add("hidden");
+}
+
+function handleContinueGame() {
+  hideWinnerModal();
+  sendAction("restart").catch((err) => toast(err.message));
+}
+
+function handleExitGame() {
+  hideWinnerModal();
+  if (!state.roomId) return;
+  postJson("/api/room/leave", { roomId: state.roomId, clientId: state.clientId }).catch(() => {});
+  state.roomId = "";
+  state.snapshot = null;
+  state.selected = null;
+  localStorage.removeItem(roomIdKey);
+  closeStream();
+  stopPolling();
+  render(null);
+  setConnection("离线", "offline");
+  const url = new URL(window.location.href);
+  url.searchParams.delete("room");
+  window.history.replaceState({}, "", url);
+}
+
 function updateActionAvailability() {
   const snapshot = state.snapshot;
   const canAct = Boolean(snapshot?.yourSide && snapshot.status === "playing");
   dom.resignBtn.disabled = !canAct;
   dom.passBtn.disabled = !(canAct && snapshot.gameType === "go");
   dom.restartBtn.disabled = !snapshot;
-  dom.copyLinkBtn.disabled = !snapshot;
-}
-
-async function copyRoomLink() {
-  if (!state.roomId) {
-    toast("还没有可复制的房间。");
-    return;
-  }
-  const url = new URL(window.location.href);
-  url.searchParams.set("room", state.roomId);
-  await navigator.clipboard.writeText(url.toString());
-  toast("房间链接已复制。");
 }
 
 function logout() {
@@ -648,9 +733,8 @@ function wireEvents() {
     sendAction("restart").catch((err) => toast(err.message));
   });
 
-  dom.copyLinkBtn.addEventListener("click", () => {
-    copyRoomLink().catch((err) => toast(err.message));
-  });
+  dom.continueBtn.addEventListener("click", handleContinueGame);
+  dom.exitBtn.addEventListener("click", handleExitGame);
 
   window.addEventListener("beforeunload", closeStream);
   window.addEventListener("beforeunload", stopPolling);

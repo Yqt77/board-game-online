@@ -930,6 +930,8 @@ function buildSnapshot(room, clientId) {
     message: buildStatusMessage(room),
     updatedAt: room.updatedAt,
     ai: room.ai || false,
+    usernames: room.usernames || {},
+    matchScore: room.matchScore || null,
   };
   if (room.gameType === "go" && room.score) {
     state.score = room.score;

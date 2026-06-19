@@ -92,6 +92,7 @@
               <span class="vs">VS</span>
               <span class="player-tag" id="opponentPlayerTag">等待中</span>
             </div>
+            <div class="match-score" id="matchScoreDisplay"></div>
           </div>
         </div>
 
@@ -100,7 +101,6 @@
         </div>
 
         <div id="boardActions" class="board-actions hidden">
-          <button id="copyLinkBtn" class="btn">复制房间链接</button>
           <button id="restartBtn" class="btn">重新开局</button>
           <button id="passBtn" class="btn hidden">停一手</button>
           <button id="resignBtn" class="btn btn-danger hidden">认输</button>
@@ -118,6 +118,24 @@
         </div>
       </section>
     </main>
+
+    <div id="notificationOverlay" class="overlay hidden">
+      <div class="overlay-content">
+        <span id="notificationText"></span>
+      </div>
+    </div>
+
+    <div id="winnerModal" class="overlay hidden">
+      <div class="modal-box">
+        <div class="modal-icon">🏆</div>
+        <h2 id="winnerTitle">对局结束</h2>
+        <p id="winnerText"></p>
+        <div class="modal-actions">
+          <button id="continueBtn" class="btn btn-primary">继续游戏</button>
+          <button id="exitBtn" class="btn">退出游戏</button>
+        </div>
+      </div>
+    </div>
 
     <script src="/app.js"></script>
   </body>
