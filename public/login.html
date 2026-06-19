@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录 - 三棋联机对战</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .login-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 22px;
+      }
+      .login-card {
+        width: 100%;
+        max-width: 400px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+        padding: 36px 32px 32px;
+        text-align: center;
+      }
+      .login-card .brand-mark {
+        margin: 0 auto 16px;
+      }
+      .login-card h1 {
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+        letter-spacing: 0.06em;
+      }
+      .login-card p {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 0.93rem;
+      }
+      .login-card .field {
+        margin-bottom: 16px;
+        text-align: left;
+      }
+      .login-card label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .login-card .input {
+        width: 100%;
+        text-transform: none;
+        letter-spacing: normal;
+      }
+      .login-card .btn {
+        width: 100%;
+        padding: 13px;
+        font-size: 1.05rem;
+        margin-top: 8px;
+      }
+      .login-card .error {
+        color: var(--danger);
+        font-size: 0.9rem;
+        min-height: 1.4em;
+        margin-top: 12px;
+      }
+      .login-hint {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        font-size: 0.85rem;
+        color: var(--muted);
+        text-align: left;
+      }
+      .login-hint code {
+        display: block;
+        margin: 4px 0;
+        font-family: monospace;
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="backdrop backdrop-a"></div>
+    <div class="backdrop backdrop-b"></div>
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="brand-mark">棋</div>
+        <h1>三棋联机对战</h1>
+        <p>登录后即可开始对局</p>
+
+        <div class="field">
+          <label for="username">用户名</label>
+          <input id="username" class="input" placeholder="输入用户名" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">密码</label>
+          <input id="password" class="input" type="password" placeholder="输入密码" autocomplete="current-password" />
+        </div>
+
+        <button id="loginBtn" class="btn btn-primary">登 录</button>
+        <div id="errorMsg" class="error"></div>
+
+        <div class="login-hint">
+          预置账号
+          <code>yqt / yqt123456</code>
+          <code>szy / szy123456</code>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const usernameInput = $("username");
+      const passwordInput = $("password");
+      const loginBtn = $("loginBtn");
+      const errorMsg = $("errorMsg");
+
+      const SESSION_KEY = "boardgame.session";
+
+      function setLoading(loading) {
+        loginBtn.disabled = loading;
+        loginBtn.textContent = loading ? "登录中..." : "登 录";
+      }
+
+      function showError(msg) {
+        errorMsg.textContent = msg;
+      }
+
+      async function login() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) {
+          showError("请输入用户名和密码");
+          return;
+        }
+        setLoading(true);
+        showError("");
+        try {
+          const resp = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) {
+            showError(data.message || "登录失败");
+            return;
+          }
+          localStorage.setItem(SESSION_KEY, JSON.stringify({ token: data.token, username: data.username }));
+          window.location.href = "/";
+        } catch (err) {
+          showError("网络错误，请重试");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      loginBtn.addEventListener("click", login);
+      passwordInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") login();
+      });
+
+      const saved = localStorage.getItem(SESSION_KEY);
+      if (saved) {
+        try {
+          const s = JSON.parse(saved);
+          if (s.token) {
+            fetch("/api/me", { headers: { "X-Session-Token": s.token } })
+              .then((r) => r.json())
+              .then((d) => { if (d.ok) window.location.href = "/"; })
+              .catch(() => {});
+          }
+        } catch {}
+      }
+    </script>
+  </body>
+</html>

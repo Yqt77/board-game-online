@@ -96,6 +96,28 @@ input {
   padding: 8px 4px 6px;
 }
 
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 0.93rem;
+}
+.user-bar span {
+  font-weight: 600;
+  color: #ffe9bf;
+}
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 10px;
+}
+
 .brand h1 {
   margin: 0;
   font-size: 1.6rem;

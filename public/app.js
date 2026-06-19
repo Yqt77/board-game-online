@@ -1,5 +1,23 @@
 const clientIdKey = "boardgame.clientId";
 const roomIdKey = "boardgame.roomId";
+const sessionKey = "boardgame.session";
+
+function getSession() {
+  try {
+    return JSON.parse(localStorage.getItem(sessionKey)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function requireAuth() {
+  const session = getSession();
+  if (!session || !session.token) {
+    window.location.href = "/login";
+    return null;
+  }
+  return session;
+}
 
 const state = {
   snapshot: null,
@@ -20,6 +38,8 @@ const dom = {
   restartBtn: $("restartBtn"),
   passBtn: $("passBtn"),
   resignBtn: $("resignBtn"),
+  usernameDisplay: $("usernameDisplay"),
+  logoutBtn: $("logoutBtn"),
   board: $("board"),
   roomIdText: $("roomIdText"),
   gameText: $("gameText"),
@@ -530,6 +550,18 @@ async function copyRoomLink() {
   toast("房间链接已复制。");
 }
 
+function logout() {
+  localStorage.removeItem(sessionKey);
+  window.location.href = "/login";
+}
+
+function bootAuth() {
+  const session = requireAuth();
+  if (!session) return;
+  dom.usernameDisplay.textContent = session.username;
+  dom.logoutBtn.addEventListener("click", logout);
+}
+
 function bootFromUrlOrStorage() {
   const params = new URLSearchParams(window.location.search);
   if (params.has("client")) {
@@ -606,6 +638,7 @@ function syncUiLoop() {
   requestAnimationFrame(syncUiLoop);
 }
 
+bootAuth();
 ensureClientId();
 wireEvents();
 bootFromUrlOrStorage();

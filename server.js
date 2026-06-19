@@ -13,12 +13,14 @@ const {
   normalizeGameType,
   computeGobangAiMove,
 } = require("./game-logic");
+const { initDatabase, authenticateUser } = require("./db");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 const PUBLIC_DIR = path.join(__dirname, "public");
 
 const rooms = new Map();
+const sessions = new Map();
 
 function makeRoomId() {
   return crypto.randomBytes(3).toString("hex").toUpperCase();
@@ -384,8 +386,51 @@ function handleEvents(req, res, url) {
   });
 }
 
+async function handleLogin(req, res) {
+  const body = await parseJsonBody(req);
+  const { username, password } = body;
+  if (!username || !password) {
+    sendJson(res, 400, { ok: false, message: "请输入用户名和密码" });
+    return;
+  }
+  const result = await authenticateUser(username, password);
+  if (!result.ok) {
+    sendJson(res, 401, result);
+    return;
+  }
+  const token = crypto.randomUUID();
+  sessions.set(token, { username, createdAt: Date.now() });
+  sendJson(res, 200, { ok: true, token, username });
+}
+
+function handleMe(req, res) {
+  const token = req.headers["x-session-token"];
+  if (!token) {
+    sendJson(res, 401, { ok: false, message: "未登录" });
+    return;
+  }
+  const session = sessions.get(token);
+  if (!session) {
+    sendJson(res, 401, { ok: false, message: "会话已过期" });
+    return;
+  }
+  sendJson(res, 200, { ok: true, username: session.username });
+}
+
 function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (req.method === "GET" && url.pathname === "/login") {
+    serveStatic(req, res, "/login.html");
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/api/login") {
+    handleLogin(req, res).catch((err) => sendJson(res, 500, { ok: false, message: err.message }));
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/me") {
+    handleMe(req, res);
+    return;
+  }
   if (req.method === "GET" && (url.pathname === "/" || url.pathname.startsWith("/app") || url.pathname.startsWith("/styles"))) {
     serveStatic(req, res, url.pathname);
     return;
@@ -448,11 +493,13 @@ function getLanAddresses() {
 }
 
 const server = http.createServer(route);
-server.listen(PORT, HOST, () => {
-  console.log(`Board game server running at http://localhost:${PORT}`);
-  console.log(`Listening on ${HOST}:${PORT}`);
-  const urls = getLanAddresses();
-  if (urls.length) {
-    console.log(`LAN access: ${urls.join(" , ")}`);
-  }
+initDatabase().then(() => {
+  server.listen(PORT, HOST, () => {
+    console.log(`Board game server running at http://localhost:${PORT}`);
+    console.log(`Listening on ${HOST}:${PORT}`);
+    const urls = getLanAddresses();
+    if (urls.length) {
+      console.log(`LAN access: ${urls.join(" , ")}`);
+    }
+  });
 });
