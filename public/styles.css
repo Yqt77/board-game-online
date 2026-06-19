@@ -458,6 +458,7 @@ input {
 .board--go {
   display: block;
   position: relative;
+  overflow: visible;
   border-top: none;
   border-left: none;
   border-right: 1px solid rgba(67, 39, 11, 0.40);
@@ -471,6 +472,8 @@ input {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
+  border-radius: 16px;
   display: grid;
   grid-template-columns: repeat(var(--grid-cols), 1fr);
   grid-template-rows: repeat(var(--grid-rows), 1fr);
