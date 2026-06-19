@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(nohup node server.js)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(cloudflared tunnel *)",
+      "Bash(lsof -ti:3000)",
+      "Bash(curl -s http://127.0.0.1:3000/api/ping)",
+      "Bash(curl *)",
+      "Bash(:)",
+      "Bash(kill 773)",
+      "Bash(kill 792)",
+      "Bash(git --version)",
+      "Bash(gh --version)",
+      "Bash(git config *)",
+      "Bash(railway --version)",
+      "Bash(winget install *)",
+      "Bash(msiexec /i /tmp/gh.msi /quiet /norestart)"
+    ]
+  }
+}

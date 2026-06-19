@@ -11,6 +11,7 @@ const {
   move,
   action,
   normalizeGameType,
+  computeGobangAiMove,
 } = require("./game-logic");
 
 const PORT = process.env.PORT || 3000;
@@ -27,7 +28,7 @@ function makeClientId() {
   return crypto.randomUUID();
 }
 
-function createRoom(gameType) {
+function createRoom(gameType, aiMode) {
   const normalized = normalizeGameType(gameType);
   let id = makeRoomId();
   while (rooms.has(id)) {
@@ -51,10 +52,17 @@ function createRoom(gameType) {
     updatedAt: base.updatedAt,
     score: null,
     sockets: new Map(),
+    ai: aiMode || false,
   };
   seatOrder(normalized).forEach((side) => {
     room.players[side] = null;
   });
+  if (room.ai) {
+    const aiSide = seatOrder(normalized)[1];
+    room.players[aiSide] = "AI";
+    room.resultText = "练习模式";
+    ensureGameReady(room);
+  }
   rooms.set(id, room);
   return room;
 }
@@ -224,7 +232,7 @@ async function handleCreateRoom(req, res) {
     sendJson(res, 400, { ok: false, message: "请选择棋类。" });
     return;
   }
-  const room = createRoom(gameType);
+  const room = createRoom(gameType, body.ai);
   const side = ensureRoomClient(room, clientId);
   const snapshot = buildSnapshot(room, clientId);
   sendJson(res, 200, {
@@ -295,7 +303,27 @@ async function handleMove(req, res) {
     return;
   }
   pushRoomState(room);
+  if (room.ai && room.status === "playing") {
+    triggerAiMove(room);
+  }
   sendJson(res, 200, { ok: true, snapshot: buildSnapshot(room, clientId) });
+}
+
+function triggerAiMove(room) {
+  const aiSide = seatOrder(room.gameType).find((side) => room.players[side] === "AI");
+  if (!aiSide || room.currentTurn !== aiSide || room.status !== "playing") {
+    return;
+  }
+  if (room.gameType === "gobang") {
+    const aiMove = computeGobangAiMove(room.board, aiSide);
+    if (aiMove) {
+      move(room, aiSide, aiMove);
+      pushRoomState(room);
+      if (room.status === "playing") {
+        triggerAiMove(room);
+      }
+    }
+  }
 }
 
 async function handleAction(req, res) {
@@ -318,6 +346,9 @@ async function handleAction(req, res) {
     return;
   }
   pushRoomState(room);
+  if (room.ai && room.status === "playing") {
+    triggerAiMove(room);
+  }
   sendJson(res, 200, { ok: true, snapshot: buildSnapshot(room, clientId) });
 }
 

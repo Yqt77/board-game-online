@@ -897,7 +897,12 @@ function buildStatusMessage(room) {
   if (room.gameType === "chess") {
     return room.currentTurn === "red" ? "轮到红方行棋。" : "轮到黑方行棋。";
   }
-  return room.currentTurn === "black" ? "轮到黑方行棋。" : "轮到白方行棋。";
+  const turnSide = room.currentTurn === "black" ? "黑方" : "白方";
+  if (room.ai) {
+    const isAiTurn = room.players[room.currentTurn] === "AI";
+    return isAiTurn ? `${turnSide}思考中...` : `轮到你行棋。`;
+  }
+  return `轮到${turnSide}行棋。`;
 }
 
 function buildSnapshot(room, clientId) {
@@ -924,11 +929,64 @@ function buildSnapshot(room, clientId) {
     resultText: room.resultText,
     message: buildStatusMessage(room),
     updatedAt: room.updatedAt,
+    ai: room.ai || false,
   };
   if (room.gameType === "go" && room.score) {
     state.score = room.score;
   }
   return state;
+}
+
+function scoreGobangPosition(board, row, col, side) {
+  let score = 0;
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (const [dr, dc] of dirs) {
+    let count = 1;
+    let openEnds = 0;
+    let r = row + dr, c = col + dc;
+    while (r >= 0 && r < board.length && c >= 0 && c < board[0].length && board[r][c] === side) {
+      count++; r += dr; c += dc;
+    }
+    if (r >= 0 && r < board.length && c >= 0 && c < board[0].length && !board[r][c]) openEnds++;
+    r = row - dr; c = col - dc;
+    while (r >= 0 && r < board.length && c >= 0 && c < board[0].length && board[r][c] === side) {
+      count++; r -= dr; c -= dc;
+    }
+    if (r >= 0 && r < board.length && c >= 0 && c < board[0].length && !board[r][c]) openEnds++;
+    if (count >= 5) score += 100000;
+    else if (count === 4 && openEnds === 2) score += 10000;
+    else if (count === 4 && openEnds === 1) score += 5000;
+    else if (count === 3 && openEnds === 2) score += 1000;
+    else if (count === 3 && openEnds === 1) score += 500;
+    else if (count === 2 && openEnds === 2) score += 100;
+    else if (count === 2 && openEnds === 1) score += 50;
+  }
+  return score;
+}
+
+function computeGobangAiMove(board, side) {
+  const opponent = side === "black" ? "white" : "black";
+  let bestScore = -1;
+  let bestMove = null;
+  const center = Math.floor(board.length / 2);
+
+  for (let row = 0; row < board.length; row++) {
+    for (let col = 0; col < board[row].length; col++) {
+      if (board[row][col]) continue;
+      const attack = scoreGobangPosition(board, row, col, side);
+      const defense = scoreGobangPosition(board, row, col, opponent);
+      let s = Math.max(attack, defense);
+      if (s === 0) {
+        const dist = Math.abs(row - center) + Math.abs(col - center);
+        s = Math.max(0, 14 - dist);
+      }
+      if (s > bestScore) {
+        bestScore = s;
+        bestMove = { row, col };
+      }
+    }
+  }
+  return bestMove;
 }
 
 module.exports = {
@@ -949,5 +1007,6 @@ module.exports = {
   getGobangWinner,
   getChessLegalMoves,
   hasAnyLegalChessMove,
+  computeGobangAiMove,
   isInCheck,
 };

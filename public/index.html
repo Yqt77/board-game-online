@@ -38,6 +38,24 @@
         </section>
 
         <section class="card">
+          <h2>练习模式（人机对战）</h2>
+          <div class="game-grid">
+            <button class="game-tile" data-practice="gobang">
+              <strong>五子棋</strong>
+              <span>与电脑对战，适合新手练习。</span>
+            </button>
+            <button class="game-tile disabled">
+              <strong>象棋</strong>
+              <span>开发中</span>
+            </button>
+            <button class="game-tile disabled">
+              <strong>围棋</strong>
+              <span>开发中</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
           <h2>加入房间</h2>
           <div class="join-row">
             <input id="roomInput" class="input" maxlength="12" placeholder="输入房间号" autocomplete="off" />
@@ -46,7 +64,7 @@
           <p class="hint">把房间号发给朋友，他在另一台设备打开同一个页面即可加入。</p>
         </section>
 
-<section class="card" id="roomCard">
+        <section class="card" id="roomCard">
           <h2>房间信息</h2>
           <div class="info-list">
             <div><span>房间号</span><strong id="roomIdText">-</strong></div>

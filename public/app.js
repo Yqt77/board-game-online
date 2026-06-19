@@ -114,11 +114,11 @@ function updateRoomInfo(snapshot) {
     return;
   }
 
-  dom.roomIdText.textContent = snapshot.roomId;
+  dom.roomIdText.textContent = snapshot.ai ? "练习" : snapshot.roomId;
   dom.gameText.textContent = GAME_LABELS[snapshot.gameType] || snapshot.gameType;
   dom.yourSideText.textContent = snapshot.yourSide ? sideLabel(snapshot.yourSide) : "旁观";
   dom.turnText.textContent = sideLabel(snapshot.currentTurn);
-  dom.boardTitle.textContent = `${GAME_LABELS[snapshot.gameType] || "棋局"} · ${snapshot.roomId}`;
+  dom.boardTitle.textContent = `${GAME_LABELS[snapshot.gameType] || "棋局"}${snapshot.ai ? " · 练习模式" : ""} · ${snapshot.roomId}`;
   dom.boardSubtitle.textContent =
     snapshot.gameType === "go"
       ? "围棋可提子、可停一手，双方连续停一手后自动计分。"
@@ -143,6 +143,7 @@ function updateRoomInfo(snapshot) {
   const canAct = Boolean(snapshot.yourSide && snapshot.status === "playing");
   dom.passBtn.classList.toggle("hidden", !(snapshot.gameType === "go" && canAct));
   dom.resignBtn.classList.toggle("hidden", !canAct);
+  dom.copyLinkBtn.classList.toggle("hidden", Boolean(snapshot.ai));
 
   if (snapshot.gameType === "go") {
     if (snapshot.status === "finished" && snapshot.score) {
@@ -375,6 +376,16 @@ async function createRoom(gameType) {
   openStream(data.roomId);
 }
 
+async function createPracticeRoom(gameType) {
+  const data = await postJson("/api/room/create", {
+    gameType,
+    clientId: state.clientId,
+    ai: true,
+  });
+  render(data.snapshot);
+  openStream(data.roomId);
+}
+
 async function joinRoom(roomId) {
   const data = await postJson("/api/room/join", {
     roomId,
@@ -476,6 +487,15 @@ async function handleCreateClick(gameType) {
   }
 }
 
+async function handlePracticeClick(gameType) {
+  try {
+    await createPracticeRoom(gameType);
+    toast("已进入练习模式，执黑先行。");
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 async function handleJoinClick() {
   const roomId = dom.roomInput.value.trim().toUpperCase();
   if (!roomId) {
@@ -537,6 +557,12 @@ function wireEvents() {
   document.querySelectorAll("[data-create]").forEach((button) => {
     button.addEventListener("click", () => {
       handleCreateClick(button.dataset.create);
+    });
+  });
+
+  document.querySelectorAll("[data-practice]").forEach((button) => {
+    button.addEventListener("click", () => {
+      handlePracticeClick(button.dataset.practice);
     });
   });
 
