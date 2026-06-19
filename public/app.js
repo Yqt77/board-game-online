@@ -41,10 +41,11 @@ const dom = {
   usernameDisplay: $("usernameDisplay"),
   logoutBtn: $("logoutBtn"),
   board: $("board"),
-  roomIdText: $("roomIdText"),
-  gameText: $("gameText"),
-  yourSideText: $("yourSideText"),
-  turnText: $("turnText"),
+  gameBadge: $("gameBadge"),
+  roomBadge: $("roomBadge"),
+  turnBadge: $("turnBadge"),
+  myPlayerTag: $("myPlayerTag"),
+  opponentPlayerTag: $("opponentPlayerTag"),
   statusText: $("statusText"),
   scoreBlock: $("scoreBlock"),
   boardTitle: $("boardTitle"),
@@ -53,6 +54,8 @@ const dom = {
   legendLeft: $("legendLeft"),
   legendRight: $("legendRight"),
   toast: $("toast"),
+  gameBar: $("gameBar"),
+  boardActions: $("boardActions"),
 };
 
 const GAME_LABELS = {
@@ -116,12 +119,28 @@ function isGoStarPoint(row, col) {
   return stars.has(row) && stars.has(col);
 }
 
+function updatePlayerInfo(snapshot) {
+  const session = getSession();
+  const myUsername = session ? session.username : "我";
+  const mySide = snapshot.yourSide;
+  const seatNames = snapshot.seatNames || ["black", "white"];
+
+  dom.myPlayerTag.textContent = `${myUsername} (${mySide ? sideLabel(mySide) : "旁观"})`;
+
+  if (snapshot.ai) {
+    dom.opponentPlayerTag.textContent = "电脑";
+    return;
+  }
+  const opponentSide = mySide ? seatNames.find((s) => s !== mySide) : null;
+  if (opponentSide && snapshot.players[opponentSide]) {
+    dom.opponentPlayerTag.textContent = `对方 (${sideLabel(opponentSide)})`;
+  } else {
+    dom.opponentPlayerTag.textContent = "等待加入";
+  }
+}
+
 function updateRoomInfo(snapshot) {
   if (!snapshot) {
-    dom.roomIdText.textContent = "-";
-    dom.gameText.textContent = "-";
-    dom.yourSideText.textContent = "-";
-    dom.turnText.textContent = "-";
     dom.boardTitle.textContent = "等待进入对局";
     dom.boardSubtitle.textContent = "创建或加入一个房间后，这里会显示棋盘。";
     dom.statusText.textContent = "选择一种棋类并创建房间，或输入房间号加入。";
@@ -129,16 +148,26 @@ function updateRoomInfo(snapshot) {
     dom.legendRight.textContent = "";
     dom.scoreBlock.classList.add("hidden");
     dom.scoreBlock.innerHTML = "";
+    dom.gameBar.classList.add("hidden");
+    dom.boardActions.classList.add("hidden");
     dom.passBtn.classList.add("hidden");
     dom.resignBtn.classList.add("hidden");
+    dom.copyLinkBtn.classList.add("hidden");
+    dom.restartBtn.classList.add("hidden");
     return;
   }
 
-  dom.roomIdText.textContent = snapshot.ai ? "练习" : snapshot.roomId;
-  dom.gameText.textContent = GAME_LABELS[snapshot.gameType] || snapshot.gameType;
-  dom.yourSideText.textContent = snapshot.yourSide ? sideLabel(snapshot.yourSide) : "旁观";
-  dom.turnText.textContent = sideLabel(snapshot.currentTurn);
-  dom.boardTitle.textContent = `${GAME_LABELS[snapshot.gameType] || "棋局"}${snapshot.ai ? " · 练习模式" : ""} · ${snapshot.roomId}`;
+  dom.gameBar.classList.remove("hidden");
+  dom.boardActions.classList.remove("hidden");
+  dom.restartBtn.classList.remove("hidden");
+
+  const gameLabel = GAME_LABELS[snapshot.gameType] || snapshot.gameType;
+  const roomLabel = snapshot.ai ? "练习" : snapshot.roomId;
+  dom.gameBadge.textContent = gameLabel;
+  dom.roomBadge.textContent = roomLabel;
+  dom.turnBadge.textContent = sideLabel(snapshot.currentTurn);
+
+  dom.boardTitle.textContent = `${gameLabel}${snapshot.ai ? " · 练习模式" : ""} · ${roomLabel}`;
   dom.boardSubtitle.textContent =
     snapshot.gameType === "go"
       ? "围棋可提子、可停一手，双方连续停一手后自动计分。"
@@ -160,28 +189,22 @@ function updateRoomInfo(snapshot) {
           ? "本局已结束"
           : "";
 
+  updatePlayerInfo(snapshot);
+
   const canAct = Boolean(snapshot.yourSide && snapshot.status === "playing");
   dom.passBtn.classList.toggle("hidden", !(snapshot.gameType === "go" && canAct));
   dom.resignBtn.classList.toggle("hidden", !canAct);
   dom.copyLinkBtn.classList.toggle("hidden", Boolean(snapshot.ai));
 
-  if (snapshot.gameType === "go") {
-    if (snapshot.status === "finished" && snapshot.score) {
-      dom.scoreBlock.classList.remove("hidden");
-      dom.scoreBlock.innerHTML = `
-        <strong>终局计分</strong><br />
-        黑方：${snapshot.score.blackScore.toFixed(1)}<br />
-        白方：${snapshot.score.whiteScore.toFixed(1)}<br />
-        结果：${snapshot.score.winner === "black" ? "黑方" : "白方"}获胜
-      `;
-    } else {
-      dom.scoreBlock.classList.add("hidden");
-      dom.scoreBlock.innerHTML = "";
-    }
-  } else if (snapshot.gameType === "chess" && snapshot.status === "finished") {
+  if (snapshot.gameType === "go" && snapshot.status === "finished" && snapshot.score) {
     dom.scoreBlock.classList.remove("hidden");
-    dom.scoreBlock.innerHTML = `对局结束，${sideLabel(snapshot.winner)}获胜。`;
-  } else if (snapshot.gameType === "gobang" && snapshot.status === "finished") {
+    dom.scoreBlock.innerHTML = `
+      <strong>终局计分</strong><br />
+      黑方：${snapshot.score.blackScore.toFixed(1)}<br />
+      白方：${snapshot.score.whiteScore.toFixed(1)}<br />
+      结果：${snapshot.score.winner === "black" ? "黑方" : "白方"}获胜
+    `;
+  } else if (snapshot.status === "finished") {
     dom.scoreBlock.classList.remove("hidden");
     dom.scoreBlock.innerHTML = `对局结束，${sideLabel(snapshot.winner)}获胜。`;
   } else {
