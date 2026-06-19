@@ -52,6 +52,8 @@ function createRoom(gameType, aiMode) {
     captures: base.captures,
     passCount: base.passCount,
     history: base.history,
+    undoCounts: base.undoCounts,
+    undoStack: base.undoStack,
     resultText: "等待对手加入。",
     lastMove: base.lastMove,
     updatedAt: base.updatedAt,

@@ -64,6 +64,8 @@ const dom = {
   winnerText: $("winnerText"),
   continueBtn: $("continueBtn"),
   exitBtn: $("exitBtn"),
+  undoBtn: $("undoBtn"),
+  undoCount: $("undoCount"),
 };
 
 const GAME_LABELS = {
@@ -82,6 +84,25 @@ const CHESS_PIECES = {
   red: { K: "帅", A: "仕", E: "相", H: "马", R: "车", C: "炮", S: "兵" },
   black: { K: "将", A: "士", E: "象", H: "马", R: "车", C: "炮", S: "卒" },
 };
+
+function playMoveSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.06, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (data.length * 0.08));
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+    source.start(ctx.currentTime);
+  } catch (e) { /* Audio not available */ }
+}
 
 function ensureClientId() {
   const params = new URLSearchParams(window.location.search);
@@ -357,6 +378,13 @@ function render(snapshot) {
     const url = new URL(window.location.href);
     url.searchParams.set("room", snapshot.roomId);
     window.history.replaceState({}, "", url);
+  }
+
+  /* Play sound when a new move is made */
+  if (snapshot && prevSnapshot && snapshot.lastMove && snapshot.lastMove !== prevSnapshot.lastMove) {
+    if (JSON.stringify(snapshot.lastMove) !== JSON.stringify(prevSnapshot.lastMove)) {
+      playMoveSound();
+    }
   }
 
   if (snapshot && snapshot.status === "finished") {
@@ -704,6 +732,13 @@ function updateActionAvailability() {
   dom.resignBtn.disabled = !canAct;
   dom.passBtn.disabled = !(canAct && snapshot.gameType === "go");
   dom.restartBtn.disabled = !snapshot;
+
+  /* Undo button: visible when playing, show remaining count */
+  const showUndo = snapshot && snapshot.status === "playing" && snapshot.undoRemaining !== null;
+  dom.undoBtn.classList.toggle("hidden", !showUndo);
+  if (snapshot && snapshot.undoRemaining !== null) {
+    dom.undoCount.textContent = snapshot.undoRemaining;
+  }
 }
 
 function logout() {
@@ -779,6 +814,10 @@ function wireEvents() {
       return;
     }
     sendAction("restart").catch((err) => toast(err.message));
+  });
+
+  dom.undoBtn.addEventListener("click", () => {
+    sendAction("undo").catch((err) => toast(err.message));
   });
 
   dom.continueBtn.addEventListener("click", handleContinueGame);

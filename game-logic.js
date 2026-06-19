@@ -100,6 +100,10 @@ function createInitialRoomState(gameType) {
         ? createGoBoard()
         : createChessBoard();
 
+  const seatNames = SEAT_ORDER[gameType];
+  const undoCounts = {};
+  seatNames.forEach((side) => { undoCounts[side] = 3; });
+
   const state = {
     gameType,
     status: "waiting",
@@ -113,6 +117,8 @@ function createInitialRoomState(gameType) {
     resultText: "",
     lastMove: null,
     updatedAt: Date.now(),
+    undoCounts,
+    undoStack: [],
   };
 
   if (gameType === "chess") {
@@ -135,6 +141,8 @@ function resetRoomState(room) {
   room.resultText = fresh.resultText;
   room.lastMove = fresh.lastMove;
   room.updatedAt = fresh.updatedAt;
+  room.undoCounts = fresh.undoCounts;
+  room.undoStack = fresh.undoStack;
 }
 
 function seatOrder(gameType) {
@@ -645,6 +653,44 @@ function isBoardFull(board) {
   return board.every((row) => row.every((cell) => cell));
 }
 
+function saveUndoState(room) {
+  if (!room.undoStack) room.undoStack = [];
+  room.undoStack.push({
+    board: cloneBoard(room.board),
+    currentTurn: room.currentTurn,
+    lastMove: room.lastMove ? { ...room.lastMove } : null,
+    captures: { ...room.captures },
+    passCount: room.passCount,
+    history: room.history ? [...room.history] : null,
+  });
+}
+
+function applyUndo(room, side) {
+  if (room.status !== "playing") return { ok: false, message: "对局已结束，无法悔棋。" };
+  if (!room.undoStack || room.undoStack.length === 0) return { ok: false, message: "没有可以悔棋的步骤。" };
+  if (!room.undoCounts) room.undoCounts = { black: 3, white: 3 };
+  if ((room.undoCounts[side] || 0) <= 0) return { ok: false, message: "悔棋次数已用完。" };
+
+  if (room.ai) {
+    /* In AI mode, undo two steps (AI response + your last move) */
+    if (room.undoStack.length < 2) return { ok: false, message: "没有可以悔棋的步骤。" };
+    room.undoStack.pop();
+  }
+
+  const state = room.undoStack.pop();
+  room.board = state.board;
+  room.currentTurn = state.currentTurn;
+  room.lastMove = state.lastMove;
+  room.captures = state.captures;
+  room.passCount = state.passCount;
+  if (room.history && state.history) {
+    room.history = state.history;
+  }
+  room.undoCounts[side]--;
+  room.updatedAt = Date.now();
+  return { ok: true, remaining: room.undoCounts[side] };
+}
+
 function applyGobangMove(room, side, row, col) {
   if (room.status !== "playing") {
     return { ok: false, message: "房间还没有开始或已经结束。" };
@@ -658,6 +704,7 @@ function applyGobangMove(room, side, row, col) {
   if (room.board[row][col]) {
     return { ok: false, message: "这个位置已经有子了。" };
   }
+  saveUndoState(room);
   room.board[row][col] = side;
   room.lastMove = { row, col, side };
   room.updatedAt = Date.now();
@@ -734,6 +781,7 @@ function applyGoMove(room, side, row, col) {
     return { ok: false, message: "这一步会形成打劫，不能落子。" };
   }
 
+  saveUndoState(room);
   room.board = nextBoard;
   room.captures[side] = (room.captures[side] || 0) + captured;
   room.currentTurn = opponent;
@@ -767,6 +815,7 @@ function applyChessMove(room, side, row, col, toRow, toCol) {
     return { ok: false, message: "不能吃自己的棋子。" };
   }
 
+  saveUndoState(room);
   room.board[toRow][toCol] = { ...piece };
   room.board[row][col] = null;
   room.currentTurn = oppositeSide(room.gameType, side);
@@ -809,6 +858,7 @@ function applyPass(room, side) {
   if (room.currentTurn !== side) {
     return { ok: false, message: "还没轮到你。" };
   }
+  saveUndoState(room);
   room.passCount += 1;
   room.lastMove = { side, action: "pass" };
   room.updatedAt = Date.now();
@@ -879,6 +929,9 @@ function action(room, side, payload) {
   if (payload.action === "restart") {
     return restartRoom(room);
   }
+  if (payload.action === "undo") {
+    return applyUndo(room, side);
+  }
   return { ok: false, message: "未知操作。" };
 }
 
@@ -932,6 +985,8 @@ function buildSnapshot(room, clientId) {
     ai: room.ai || false,
     usernames: room.usernames || {},
     matchScore: room.matchScore || null,
+    undoCounts: room.undoCounts || null,
+    undoRemaining: yourSide ? (room.undoCounts?.[yourSide] || 0) : null,
   };
   if (room.gameType === "go" && room.score) {
     state.score = room.score;
