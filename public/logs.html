@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>登录日志 - SZY专属游戏</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="backdrop backdrop-a"></div>
+    <div class="backdrop backdrop-b"></div>
+
+    <div class="shell" style="grid-template-columns:1fr">
+      <div class="panel" style="padding:22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+          <h1 style="margin:0;font-size:1.4rem">登录日志</h1>
+          <a href="/" class="btn" style="text-decoration:none">返回游戏</a>
+        </div>
+        <p style="color:var(--muted);margin:0 0 16px;font-size:0.92rem">
+          最近 100 条登录记录（自动刷新）
+        </p>
+        <div style="overflow-x:auto">
+          <table id="logTable" style="width:100%;border-collapse:collapse;font-size:0.9rem">
+            <thead>
+              <tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+                <th style="padding:10px 12px;text-align:left">时间</th>
+                <th style="padding:10px 12px;text-align:left">用户名</th>
+                <th style="padding:10px 12px;text-align:left">结果</th>
+                <th style="padding:10px 12px;text-align:left">IP 地址</th>
+              </tr>
+            </thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+        <div id="statusMsg" style="color:var(--danger);margin-top:14px;font-size:0.9rem"></div>
+      </div>
+    </div>
+
+    <script>
+      const SESSION_KEY = "boardgame.session";
+
+      function getSession() {
+        try {
+          const raw = localStorage.getItem(SESSION_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+      }
+
+      const session = getSession();
+      if (!session) {
+        document.getElementById("statusMsg").textContent = "请先登录";
+      }
+
+      async function loadLogs() {
+        if (!session) return;
+        try {
+          const resp = await fetch("/api/login-logs", {
+            headers: { "X-Session-Token": session.token }
+          });
+          const data = await resp.json();
+          if (!data.ok) {
+            document.getElementById("statusMsg").textContent = data.message || "获取失败";
+            return;
+          }
+          const tbody = document.getElementById("logBody");
+          tbody.innerHTML = "";
+          for (const log of data.logs) {
+            const tr = document.createElement("tr");
+            tr.style.borderBottom = "1px solid var(--border)";
+            const time = new Date(log.created_at).toLocaleString("zh-CN", {
+              year: "numeric", month: "2-digit", day: "2-digit",
+              hour: "2-digit", minute: "2-digit", second: "2-digit"
+            });
+            tr.innerHTML = [
+              `<td style="padding:8px 12px;white-space:nowrap">${time}</td>`,
+              `<td style="padding:8px 12px">${log.username}</td>`,
+              `<td style="padding:8px 12px;color:${log.success ? "var(--accent)" : "var(--danger)"}">${log.success ? "成功" : "失败"}</td>`,
+              `<td style="padding:8px 12px;font-family:monospace;font-size:0.85rem">${log.ip || "-"}</td>`,
+            ].join("");
+            tbody.appendChild(tr);
+          }
+          if (data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted)">暂无记录</td></tr>';
+          }
+          document.getElementById("statusMsg").textContent = "";
+        } catch (err) {
+          document.getElementById("statusMsg").textContent = "网络错误";
+        }
+      }
+
+      loadLogs();
+      setInterval(loadLogs, 10000);
+    </script>
+  </body>
+</html>

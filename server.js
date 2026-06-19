@@ -13,7 +13,7 @@ const {
   normalizeGameType,
   computeGobangAiMove,
 } = require("./game-logic");
-const { initDatabase, authenticateUser, dbStatus } = require("./db");
+const { initDatabase, authenticateUser, dbStatus, logLoginAttempt, getLoginLogs } = require("./db");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -448,7 +448,9 @@ async function handleLogin(req, res) {
     sendJson(res, 400, { ok: false, message: "请输入用户名和密码" });
     return;
   }
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
   const result = await authenticateUser(username, password);
+  await logLoginAttempt(username, result.ok, ip);
   if (!result.ok) {
     sendJson(res, 401, result);
     return;
@@ -470,6 +472,21 @@ function handleMe(req, res) {
     return;
   }
   sendJson(res, 200, { ok: true, username: session.username });
+}
+
+async function handleLoginLogs(req, res) {
+  const token = req.headers["x-session-token"];
+  if (!token) {
+    sendJson(res, 401, { ok: false, message: "未登录" });
+    return;
+  }
+  const session = sessions.get(token);
+  if (!session) {
+    sendJson(res, 401, { ok: false, message: "会话已过期" });
+    return;
+  }
+  const rows = await getLoginLogs(100);
+  sendJson(res, 200, { ok: true, logs: rows });
 }
 
 function route(req, res) {
@@ -535,6 +552,14 @@ function route(req, res) {
   }
   if (req.method === "GET" && url.pathname === "/api/db-status") {
     dbStatus().then((status) => sendJson(res, 200, { ok: true, ...status }));
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/login-logs") {
+    handleLoginLogs(req, res);
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/logs") {
+    serveStatic(req, res, "/logs.html");
     return;
   }
 
