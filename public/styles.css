@@ -456,7 +456,66 @@ input {
 
 .board--gobang,
 .board--go {
+  display: block;
+  position: relative;
+  border-top: none;
+  border-left: none;
+  border-right: 1px solid rgba(67, 39, 11, 0.40);
+  border-bottom: 1px solid rgba(67, 39, 11, 0.40);
   background: linear-gradient(145deg, rgba(255, 231, 192, 0.96), rgba(239, 196, 137, 0.95));
+}
+
+/* Edge-to-edge grid lines via (N-1)×(N-1) cells with borders */
+.board--gobang .board-grid,
+.board--go .board-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols), 1fr);
+  grid-template-rows: repeat(var(--grid-rows), 1fr);
+  pointer-events: none;
+}
+.board--gobang .grid-cell,
+.board--go .grid-cell {
+  border-top: 1px solid rgba(67, 39, 11, 0.40);
+  border-left: 1px solid rgba(67, 39, 11, 0.40);
+}
+
+/* Intersection markers (stone positions + click targets) */
+.board--gobang .board-stones,
+.board--go .board-stones {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.board--gobang .pos,
+.board--go .pos {
+  position: absolute;
+  width: calc(100% / var(--board-cols));
+  height: calc(100% / var(--board-rows));
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.board--gobang .pos:hover,
+.board--go .pos:hover {
+  background: radial-gradient(circle, rgba(0,0,0,0.15) 30%, transparent 70%);
+}
+.board--gobang .pos--last,
+.board--go .pos--last {
+  box-shadow: 0 0 0 2px rgba(243, 178, 110, 0.72);
+  border-radius: 50%;
+}
+.board--gobang .pos--star::after,
+.board--go .pos--star::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(67, 39, 11, 0.62);
 }
 
 .board--chess {
@@ -489,14 +548,6 @@ input {
   pointer-events: none;
 }
 
-/* Go / Gobang: draw grid lines through cell centers (intersection points) */
-.board--gobang .cell::before,
-.board--go .cell::before {
-  background:
-    linear-gradient(to bottom, transparent calc(50% - 0.5px), rgba(67, 39, 11, 0.40) calc(50% - 0.5px), rgba(67, 39, 11, 0.40) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
-    linear-gradient(to right, transparent calc(50% - 0.5px), rgba(67, 39, 11, 0.40) calc(50% - 0.5px), rgba(67, 39, 11, 0.40) calc(50% + 0.5px), transparent calc(50% + 0.5px));
-}
-
 /* Chess: draw cell borders */
 .board--chess .cell::before {
   border-right: 1px solid rgba(67, 39, 11, 0.23);
@@ -507,35 +558,15 @@ input {
   background: rgba(255, 255, 255, 0.01);
 }
 
-.board--gobang .cell:hover,
-.board--go .cell:hover {
-  background: radial-gradient(circle, rgba(0,0,0,0.15) 30%, transparent 70%);
-}
-
 .board--chess .cell:hover {
   background: rgba(255, 255, 255, 0.07);
 }
 
-.board--gobang .cell--selected,
-.board--go .cell--selected {
-  z-index: 1;
-}
-.board--gobang .cell--selected,
-.board--go .cell--selected {
-  box-shadow: 0 0 0 2px rgba(109, 211, 255, 0.8);
-  border-radius: 50%;
-}
 .board--chess .cell--selected {
   box-shadow: inset 0 0 0 2px rgba(109, 211, 255, 0.8);
   z-index: 1;
 }
 
-.board--gobang .cell--last,
-.board--go .cell--last {
-  z-index: 1;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(243, 178, 110, 0.72);
-}
 .board--chess .cell--last {
   box-shadow: inset 0 0 0 2px rgba(243, 178, 110, 0.72);
   z-index: 1;

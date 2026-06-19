@@ -23,7 +23,7 @@ const rooms = new Map();
 const sessions = new Map();
 
 function makeRoomId() {
-  return crypto.randomBytes(3).toString("hex").toUpperCase();
+  return String(Math.floor(1000 + Math.random() * 9000));
 }
 
 function makeClientId() {

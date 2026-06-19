@@ -266,8 +266,57 @@ function renderBoard(snapshot) {
 
   const lastMoveCells = getLastMoveCells(snapshot);
   const selected = state.selected;
-  const fragment = document.createDocumentFragment();
 
+  if (snapshot.gameType === "gobang" || snapshot.gameType === "go") {
+    /* Grid lines: (N-1)×(N-1) cells with borders — edge-to-edge */
+    dom.board.style.setProperty("--grid-cols", cols - 1);
+    dom.board.style.setProperty("--grid-rows", rows - 1);
+    const grid = document.createElement("div");
+    grid.className = "board-grid";
+    const total = (rows - 1) * (cols - 1);
+    for (let i = 0; i < total; i++) {
+      const gc = document.createElement("div");
+      gc.className = "grid-cell";
+      grid.appendChild(gc);
+    }
+    dom.board.appendChild(grid);
+
+    /* Intersection markers / stones — absolutely positioned */
+    const layer = document.createElement("div");
+    layer.className = "board-stones";
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const pos = document.createElement("div");
+        pos.className = "pos";
+        pos.dataset.row = String(row);
+        pos.dataset.col = String(col);
+        pos.style.top = `${(row / (rows - 1)) * 100}%`;
+        pos.style.left = `${(col / (cols - 1)) * 100}%`;
+        pos.setAttribute("aria-label", `${row + 1} 行 ${col + 1} 列`);
+
+        if (snapshot.gameType === "go" && isGoStarPoint(row, col) && !snapshot.board[row][col]) {
+          pos.classList.add("pos--star");
+        }
+        if (lastMoveCells.has(`${row},${col}`)) {
+          pos.classList.add("pos--last");
+        }
+
+        const value = snapshot.board[row][col];
+        if (value === "black" || value === "white") {
+          const stone = document.createElement("span");
+          stone.className = `stone stone--${value}`;
+          pos.appendChild(stone);
+        }
+
+        layer.appendChild(pos);
+      }
+    }
+    dom.board.appendChild(layer);
+    return;
+  }
+
+  /* Chess: existing cell-based approach */
+  const fragment = document.createDocumentFragment();
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const cell = document.createElement("button");
@@ -277,9 +326,6 @@ function renderBoard(snapshot) {
       cell.dataset.col = String(col);
       cell.setAttribute("aria-label", `${row + 1} 行 ${col + 1} 列`);
 
-      if (snapshot.gameType === "go" && isGoStarPoint(row, col) && !snapshot.board[row][col]) {
-        cell.classList.add("cell--star");
-      }
       if (lastMoveCells.has(`${row},${col}`)) {
         cell.classList.add("cell--last");
       }
@@ -288,13 +334,7 @@ function renderBoard(snapshot) {
       }
 
       const value = snapshot.board[row][col];
-      if (snapshot.gameType === "gobang" || snapshot.gameType === "go") {
-        if (value === "black" || value === "white") {
-          const stone = document.createElement("span");
-          stone.className = `stone stone--${value}`;
-          cell.appendChild(stone);
-        }
-      } else if (value) {
+      if (value) {
         const piece = document.createElement("span");
         piece.className = `piece piece--${value.color}`;
         piece.textContent = pieceText(value);
@@ -304,7 +344,6 @@ function renderBoard(snapshot) {
       fragment.appendChild(cell);
     }
   }
-
   dom.board.appendChild(fragment);
 }
 
@@ -501,14 +540,23 @@ async function sendAction(action) {
 }
 
 function handleBoardClick(event) {
-  const cell = event.target.closest(".cell");
-  if (!cell || !state.snapshot) {
+  const snapshot = state.snapshot;
+  if (!snapshot) {
     return;
   }
 
-  const row = Number(cell.dataset.row);
-  const col = Number(cell.dataset.col);
-  const snapshot = state.snapshot;
+  let row, col;
+  if (snapshot.gameType === "gobang" || snapshot.gameType === "go") {
+    const pos = event.target.closest(".pos");
+    if (!pos) return;
+    row = Number(pos.dataset.row);
+    col = Number(pos.dataset.col);
+  } else {
+    const cell = event.target.closest(".cell");
+    if (!cell) return;
+    row = Number(cell.dataset.row);
+    col = Number(cell.dataset.col);
+  }
 
   if (snapshot.status !== "playing") {
     toast("当前对局还没开始，或者已经结束。");
