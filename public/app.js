@@ -55,14 +55,14 @@ const dom = {
   goStatsBar: $("goStatsBar"),
   gsBlackCaptures: $("gsBlackCaptures"),
   gsBlackTerritory: $("gsBlackTerritory"),
+  gsBlackStones: $("gsBlackStones"),
   gsBlackScore: $("gsBlackScore"),
   gsBlackGroups: $("gsBlackGroups"),
-  gsBlackLargest: $("gsBlackLargest"),
   gsWhiteCaptures: $("gsWhiteCaptures"),
   gsWhiteTerritory: $("gsWhiteTerritory"),
+  gsWhiteStones: $("gsWhiteStones"),
   gsWhiteScore: $("gsWhiteScore"),
   gsWhiteGroups: $("gsWhiteGroups"),
-  gsWhiteLargest: $("gsWhiteLargest"),
   gsLeader: $("gsLeader"),
   gsBlackSentinel: $("gsBlackSentinel"),
   gsWhiteSentinel: $("gsWhiteSentinel"),
@@ -398,16 +398,16 @@ function renderGoStats(snapshot) {
   /* Black stats */
   dom.gsBlackCaptures.textContent = s.blackCaptures;
   dom.gsBlackTerritory.textContent = s.blackTerritory.toFixed(1);
+  dom.gsBlackStones.textContent = s.blackStones;
   dom.gsBlackScore.textContent = s.blackScore.toFixed(1);
   dom.gsBlackGroups.textContent = s.blackGroups;
-  dom.gsBlackLargest.textContent = `${s.blackLargestGroup}子`;
 
   /* White stats */
   dom.gsWhiteCaptures.textContent = s.whiteCaptures;
   dom.gsWhiteTerritory.textContent = s.whiteTerritory.toFixed(1);
+  dom.gsWhiteStones.textContent = s.whiteStones;
   dom.gsWhiteScore.textContent = s.whiteScore.toFixed(1);
   dom.gsWhiteGroups.textContent = s.whiteGroups;
-  dom.gsWhiteLargest.textContent = `${s.whiteLargestGroup}子`;
 
   /* Leader / score diff */
   if (s.leader) {

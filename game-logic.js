@@ -789,6 +789,17 @@ function applyGoMove(room, side, row, col) {
   room.history.push(nextHash);
   room.lastMove = { row, col, side, captured };
   room.updatedAt = Date.now();
+
+  /* Check if board is completely full — auto end and score */
+  if (isBoardFull(room.board)) {
+    const score = calculateGoScore(room.board, room.captures);
+    room.status = "finished";
+    room.winner = score.winner;
+    room.resultText = `棋盘下满，终局计分。黑方 ${score.blackScore.toFixed(1)}  :  白方 ${score.whiteScore.toFixed(1)}。${score.winner === "black" ? "黑方" : "白方"}获胜。`;
+    room.score = score;
+    return { ok: true, captured, finished: true, score };
+  }
+
   return { ok: true, captured };
 }
 
@@ -1195,8 +1206,10 @@ function computeGoStats(board, captures) {
     }
   }
 
-  const blackScore = blackTerritory + (captures.black || 0);
-  const whiteScore = whiteTerritory + (captures.white || 0) + 6.5;
+  const blackStones = groups.black.reduce((a, b) => a + b, 0);
+  const whiteStones = groups.white.reduce((a, b) => a + b, 0);
+  const blackScore = blackTerritory + blackStones + (captures.black || 0);
+  const whiteScore = whiteTerritory + whiteStones + (captures.white || 0) + 6.5;
   const diff = Math.abs(blackScore - whiteScore);
 
   return {
@@ -1204,6 +1217,8 @@ function computeGoStats(board, captures) {
     whiteTerritory,
     blackCaptures: captures.black || 0,
     whiteCaptures: captures.white || 0,
+    blackStones,
+    whiteStones,
     blackScore,
     whiteScore,
     blackGroups: groups.black.length,
