@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>三棋联机对战</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="backdrop backdrop-a"></div>
+    <div class="backdrop backdrop-b"></div>
+    <main class="shell">
+      <aside class="panel sidebar">
+        <div class="brand">
+          <div class="brand-mark">棋</div>
+          <div>
+            <h1>三棋联机对战</h1>
+            <p>五子棋 · 象棋 · 围棋，两个浏览器就能开局。</p>
+          </div>
+        </div>
+
+        <section class="card">
+          <h2>创建房间</h2>
+          <div class="game-grid">
+            <button class="game-tile" data-create="gobang">
+              <strong>五子棋</strong>
+              <span>15 × 15，先连成五子者胜。</span>
+            </button>
+            <button class="game-tile" data-create="chess">
+              <strong>象棋</strong>
+              <span>红方先行，保住将帅。</span>
+            </button>
+            <button class="game-tile" data-create="go">
+              <strong>围棋</strong>
+              <span>19 × 19，提子与围地。</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>加入房间</h2>
+          <div class="join-row">
+            <input id="roomInput" class="input" maxlength="12" placeholder="输入房间号" autocomplete="off" />
+            <button id="joinBtn" class="btn btn-primary">加入</button>
+          </div>
+          <p class="hint">把房间号发给朋友，他在另一台设备打开同一个页面即可加入。</p>
+        </section>
+
+        <section class="card">
+          <h2>公网地址</h2>
+          <div class="join-row">
+            <input
+              id="publicOriginInput"
+              class="input"
+              placeholder="例如 https://xxxx.trycloudflare.com"
+              autocomplete="off"
+            />
+            <button id="savePublicOriginBtn" class="btn">保存</button>
+          </div>
+          <p class="hint">
+            如果你用的是内网穿透，把公网访问地址填在这里，复制房间链接时会自动用它。
+          </p>
+        </section>
+
+        <section class="card" id="roomCard">
+          <h2>房间信息</h2>
+          <div class="info-list">
+            <div><span>房间号</span><strong id="roomIdText">-</strong></div>
+            <div><span>棋类</span><strong id="gameText">-</strong></div>
+            <div><span>你的身份</span><strong id="yourSideText">-</strong></div>
+            <div><span>当前回合</span><strong id="turnText">-</strong></div>
+          </div>
+          <div class="action-row">
+            <button id="copyLinkBtn" class="btn">复制房间链接</button>
+            <button id="restartBtn" class="btn">重新开局</button>
+          </div>
+        </section>
+
+        <section class="card" id="statusCard">
+          <h2>对局状态</h2>
+          <p id="statusText" class="status-text">选择一种棋类并创建房间，或输入房间号加入。</p>
+          <div id="scoreBlock" class="score-block hidden"></div>
+        </section>
+
+        <section class="card" id="actionsCard">
+          <h2>快捷操作</h2>
+          <div class="action-row">
+            <button id="passBtn" class="btn hidden">停一手</button>
+            <button id="resignBtn" class="btn btn-danger hidden">认输</button>
+          </div>
+          <p class="hint">五子棋和象棋直接点击棋盘落子；象棋先点己方棋子，再点目标格。</p>
+        </section>
+
+        <div id="toast" class="toast" aria-live="polite"></div>
+      </aside>
+
+      <section class="panel board-panel">
+        <div class="board-head">
+          <div>
+            <h2 id="boardTitle">等待进入对局</h2>
+            <p id="boardSubtitle">创建或加入一个房间后，这里会显示棋盘。</p>
+          </div>
+          <div class="chip" id="connectionChip">离线</div>
+        </div>
+        <div id="boardWrap" class="board-wrap">
+          <div id="board" class="board"></div>
+        </div>
+        <div class="legend">
+          <span id="legendLeft">提示会显示在这里。</span>
+          <span id="legendRight"></span>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

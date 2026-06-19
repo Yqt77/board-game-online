@@ -1,0 +1,9 @@
+{
+  "name": "board-game-online",
+  "version": "1.0.0",
+  "description": "Three board games with two-player online rooms: gomoku, xiangqi, and go.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
