@@ -1,6 +1,5 @@
 const clientIdKey = "boardgame.clientId";
 const roomIdKey = "boardgame.roomId";
-const publicOriginKey = "boardgame.publicOrigin";
 
 const state = {
   snapshot: null,
@@ -17,8 +16,6 @@ const $ = (id) => document.getElementById(id);
 const dom = {
   roomInput: $("roomInput"),
   joinBtn: $("joinBtn"),
-  publicOriginInput: $("publicOriginInput"),
-  savePublicOriginBtn: $("savePublicOriginBtn"),
   copyLinkBtn: $("copyLinkBtn"),
   restartBtn: $("restartBtn"),
   passBtn: $("passBtn"),
@@ -69,40 +66,6 @@ function ensureClientId() {
     localStorage.setItem(clientIdKey, id);
   }
   state.clientId = id;
-}
-
-function normalizeOrigin(value) {
-  const raw = String(value || "").trim();
-  if (!raw) {
-    return "";
-  }
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return "";
-  }
-}
-
-function getShareOrigin() {
-  const stored = normalizeOrigin(localStorage.getItem(publicOriginKey));
-  return stored || window.location.origin;
-}
-
-function loadPublicOrigin() {
-  dom.publicOriginInput.value = localStorage.getItem(publicOriginKey) || "";
-}
-
-function savePublicOrigin() {
-  const normalized = normalizeOrigin(dom.publicOriginInput.value);
-  if (!normalized) {
-    localStorage.removeItem(publicOriginKey);
-    dom.publicOriginInput.value = "";
-    toast("已清除公网地址。");
-    return;
-  }
-  localStorage.setItem(publicOriginKey, normalized);
-  dom.publicOriginInput.value = normalized;
-  toast("公网地址已保存。");
 }
 
 function setConnection(text, mode = "") {
@@ -542,9 +505,6 @@ async function copyRoomLink() {
     return;
   }
   const url = new URL(window.location.href);
-  const base = new URL(getShareOrigin());
-  url.protocol = base.protocol;
-  url.host = base.host;
   url.searchParams.set("room", state.roomId);
   await navigator.clipboard.writeText(url.toString());
   toast("房间链接已复制。");
@@ -584,16 +544,6 @@ function wireEvents() {
     handleJoinClick();
   });
 
-  dom.savePublicOriginBtn.addEventListener("click", () => {
-    savePublicOrigin();
-  });
-
-  dom.publicOriginInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      savePublicOrigin();
-    }
-  });
-
   dom.roomInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       handleJoinClick();
@@ -631,7 +581,6 @@ function syncUiLoop() {
 }
 
 ensureClientId();
-loadPublicOrigin();
 wireEvents();
 bootFromUrlOrStorage();
 syncUiLoop();
