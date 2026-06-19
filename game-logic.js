@@ -991,6 +991,9 @@ function buildSnapshot(room, clientId) {
   if (room.gameType === "go" && room.score) {
     state.score = room.score;
   }
+  if (room.gameType === "go") {
+    state.goStats = computeGoStats(room.board, room.captures);
+  }
   return state;
 }
 
@@ -1046,6 +1049,172 @@ function computeGobangAiMove(board, side) {
   return bestMove;
 }
 
+function computeGoAiMove(board, side, history) {
+  const opponent = oppositeSide("go", side);
+  const size = board.length;
+  let bestScore = -1;
+  let bestMove = null;
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (board[row][col]) continue;
+
+      /* Simulate the move on a clone */
+      const testBoard = cloneBoard(board);
+      testBoard[row][col] = side;
+
+      /* Remove captured opponent stones */
+      let captures = 0;
+      const neighbors = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      neighbors.forEach(([dr, dc]) => {
+        const nr = row + dr, nc = col + dc;
+        if (!isInside(size, size, nr, nc)) return;
+        if (testBoard[nr][nc] === opponent) {
+          const group = collectGoGroup(testBoard, nr, nc);
+          if (group.liberties.size === 0) {
+            removeGoGroup(testBoard, group);
+            captures += group.stones.length;
+          }
+        }
+      });
+
+      /* Suicide check */
+      const selfGroup = collectGoGroup(testBoard, row, col);
+      if (selfGroup.liberties.size === 0) continue;
+
+      /* Ko shape check — avoid repeating previous board hash */
+      const nextHash = boardHash(testBoard);
+      if (history && history.length >= 2 && nextHash === history[history.length - 2]) continue;
+
+      let score = 0;
+
+      /* (1) Captures — high priority */
+      score += captures * 120;
+
+      /* (2) Save own stones in atari */
+      neighbors.forEach(([dr, dc]) => {
+        const nr = row + dr, nc = col + dc;
+        if (!isInside(size, size, nr, nc)) return;
+        if (board[nr][nc] === side) {
+          const g = collectGoGroup(board, nr, nc);
+          if (g.liberties.size === 1) score += 90;
+        }
+      });
+
+      /* (3) Attack opponent stones with 1 liberty */
+      neighbors.forEach(([dr, dc]) => {
+        const nr = row + dr, nc = col + dc;
+        if (!isInside(size, size, nr, nc)) return;
+        if (board[nr][nc] === opponent) {
+          const g = collectGoGroup(board, nr, nc);
+          if (g.liberties.size === 1) score += 70;
+        }
+      });
+
+      /* (4) Liberties of own group after move */
+      score += Math.min(selfGroup.liberties.size, 8) * 4;
+
+      /* (5) Connect with friendly stones */
+      neighbors.forEach(([dr, dc]) => {
+        const nr = row + dr, nc = col + dc;
+        if (!isInside(size, size, nr, nc)) return;
+        if (board[nr][nc] === side) score += 3;
+      });
+
+      /* (6) Slight center preference (fuseki heuristic) */
+      const center = (size - 1) / 2;
+      const dist = Math.abs(row - center) + Math.abs(col - center);
+      score += Math.max(0, (size - 1) * 2 - dist) * 0.3;
+
+      /* (7) Star-point bonus early game */
+      const starRows = [3, 9, 15].filter((r) => r < size);
+      const starCols = [3, 9, 15].filter((c) => c < size);
+      if (starRows.includes(row) && starCols.includes(col)) {
+        const filled = board.some((r) => r.some((c) => c));
+        if (!filled) score += 2;
+      }
+
+      score += Math.random() * 0.01;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMove = { row, col };
+      }
+    }
+  }
+
+  return bestMove;
+}
+
+function computeGoStats(board, captures) {
+  const size = board.length;
+  const allVisited = new Set();
+  const groups = { black: [], white: [] };
+  let blackTerritory = 0;
+  let whiteTerritory = 0;
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const key = `${row},${col}`;
+      if (allVisited.has(key)) continue;
+      const cell = board[row][col];
+
+      if (cell) {
+        /* Stone group */
+        const group = collectGoGroup(board, row, col);
+        group.stones.forEach(([r, c]) => allVisited.add(`${r},${c}`));
+        groups[cell].push(group.stones.length);
+      } else {
+        /* Empty region — BFS to find extents */
+        const region = [];
+        const boundaries = new Set();
+        const queue = [[row, col]];
+        allVisited.add(key);
+        while (queue.length) {
+          const [r, c] = queue.shift();
+          region.push([r, c]);
+          [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([nr, nc]) => {
+            if (!isInside(size, size, nr, nc)) return;
+            const nk = `${nr},${nc}`;
+            if (allVisited.has(nk)) return;
+            const nv = board[nr][nc];
+            if (!nv) {
+              allVisited.add(nk);
+              queue.push([nr, nc]);
+            } else {
+              boundaries.add(nv);
+            }
+          });
+        }
+        if (boundaries.size === 1) {
+          const owner = [...boundaries][0];
+          if (owner === "black") blackTerritory += region.length;
+          else if (owner === "white") whiteTerritory += region.length;
+        }
+      }
+    }
+  }
+
+  const blackScore = blackTerritory + (captures.black || 0);
+  const whiteScore = whiteTerritory + (captures.white || 0) + 6.5;
+  const diff = Math.abs(blackScore - whiteScore);
+
+  return {
+    blackTerritory,
+    whiteTerritory,
+    blackCaptures: captures.black || 0,
+    whiteCaptures: captures.white || 0,
+    blackScore,
+    whiteScore,
+    blackGroups: groups.black.length,
+    whiteGroups: groups.white.length,
+    blackLargestGroup: groups.black.length ? Math.max(...groups.black) : 0,
+    whiteLargestGroup: groups.white.length ? Math.max(...groups.white) : 0,
+    leader: diff < 0.1 ? null : (blackScore > whiteScore ? "black" : "white"),
+    scoreDiff: diff,
+  };
+}
+
 module.exports = {
   seatOrder,
   normalizeGameType,
@@ -1065,5 +1234,7 @@ module.exports = {
   getChessLegalMoves,
   hasAnyLegalChessMove,
   computeGobangAiMove,
+  computeGoAiMove,
+  computeGoStats,
   isInCheck,
 };

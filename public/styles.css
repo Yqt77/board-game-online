@@ -440,6 +440,105 @@ input {
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
 }
 
+.board-wrap--go {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 150px;
+  grid-template-rows: 1fr auto;
+  gap: 0 16px;
+  place-items: initial;
+  align-items: start;
+}
+.board-wrap--go > .board {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  align-self: center;
+}
+.board-wrap--go > .go-stats {
+  grid-row: 1;
+}
+.board-wrap--go > .go-stats-bar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.go-stats {
+  padding: 12px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+.go-stats-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.go-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.go-stats-table td {
+  padding: 2px 0;
+}
+.go-stats-table td:first-child {
+  color: var(--muted);
+  width: 55%;
+}
+.go-stats-table td:last-child {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.go-stats-sentinel {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+.go-stats-sentinel--active::after {
+  content: "● 落子中";
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.go-stats-bar {
+  text-align: center;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 8px;
+}
+
+.stone-icon-black,
+.stone-icon-white {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.stone-icon-black {
+  background: radial-gradient(circle at 35% 35%, #5a6470, #090d14 72%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.stone-icon-white {
+  background: radial-gradient(circle at 35% 35%, #fffdf8, #d9d2c4 72%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
 .board {
   width: min(100%, 840px);
   aspect-ratio: var(--board-cols) / var(--board-rows);

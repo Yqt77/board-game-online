@@ -52,9 +52,9 @@
               <strong>象棋</strong>
               <span>开发中</span>
             </button>
-            <button class="game-tile disabled">
+            <button class="game-tile" data-practice="go">
               <strong>围棋</strong>
-              <span>开发中</span>
+              <span>与电脑对战，适合新手练习。</span>
             </button>
           </div>
         </section>
@@ -108,7 +108,38 @@
         </div>
 
         <div id="boardWrap" class="board-wrap">
+          <div id="goStatsLeft" class="go-stats hidden">
+            <div class="go-stats-header">
+              <span class="go-stats-stone stone-icon-black"></span>
+              <span>黑方</span>
+            </div>
+            <table class="go-stats-table">
+              <tr><td>提子</td><td id="gsBlackCaptures">0</td></tr>
+              <tr><td>实地</td><td id="gsBlackTerritory">0.0</td></tr>
+              <tr><td>总目</td><td id="gsBlackScore">0.0</td></tr>
+              <tr><td>块数</td><td id="gsBlackGroups">0</td></tr>
+              <tr><td>最大块</td><td id="gsBlackLargest">0</td></tr>
+            </table>
+            <div class="go-stats-sentinel" id="gsBlackSentinel"></div>
+          </div>
           <div id="board" class="board"></div>
+          <div id="goStatsRight" class="go-stats hidden">
+            <div class="go-stats-header">
+              <span class="go-stats-stone stone-icon-white"></span>
+              <span>白方</span>
+            </div>
+            <table class="go-stats-table">
+              <tr><td>提子</td><td id="gsWhiteCaptures">0</td></tr>
+              <tr><td>实地</td><td id="gsWhiteTerritory">0.0</td></tr>
+              <tr><td>总目</td><td id="gsWhiteScore">0.0</td></tr>
+              <tr><td>块数</td><td id="gsWhiteGroups">0</td></tr>
+              <tr><td>最大块</td><td id="gsWhiteLargest">0</td></tr>
+            </table>
+            <div class="go-stats-sentinel" id="gsWhiteSentinel"></div>
+          </div>
+          <div id="goStatsBar" class="go-stats-bar hidden">
+            <span id="gsLeader">-</span>
+          </div>
         </div>
 
         <div id="scoreBlock" class="score-block hidden"></div>

@@ -41,6 +41,7 @@ const dom = {
   usernameDisplay: $("usernameDisplay"),
   logoutBtn: $("logoutBtn"),
   board: $("board"),
+  boardWrap: $("boardWrap"),
   gameBadge: $("gameBadge"),
   roomBadge: $("roomBadge"),
   turnBadge: $("turnBadge"),
@@ -49,6 +50,22 @@ const dom = {
   matchScoreDisplay: $("matchScoreDisplay"),
   statusText: $("statusText"),
   scoreBlock: $("scoreBlock"),
+  goStatsLeft: $("goStatsLeft"),
+  goStatsRight: $("goStatsRight"),
+  goStatsBar: $("goStatsBar"),
+  gsBlackCaptures: $("gsBlackCaptures"),
+  gsBlackTerritory: $("gsBlackTerritory"),
+  gsBlackScore: $("gsBlackScore"),
+  gsBlackGroups: $("gsBlackGroups"),
+  gsBlackLargest: $("gsBlackLargest"),
+  gsWhiteCaptures: $("gsWhiteCaptures"),
+  gsWhiteTerritory: $("gsWhiteTerritory"),
+  gsWhiteScore: $("gsWhiteScore"),
+  gsWhiteGroups: $("gsWhiteGroups"),
+  gsWhiteLargest: $("gsWhiteLargest"),
+  gsLeader: $("gsLeader"),
+  gsBlackSentinel: $("gsBlackSentinel"),
+  gsWhiteSentinel: $("gsWhiteSentinel"),
   boardTitle: $("boardTitle"),
   boardSubtitle: $("boardSubtitle"),
   connectionChip: $("connectionChip"),
@@ -368,6 +385,44 @@ function renderBoard(snapshot) {
   dom.board.appendChild(fragment);
 }
 
+function renderGoStats(snapshot) {
+  const isGo = snapshot && snapshot.gameType === "go";
+  dom.goStatsLeft.classList.toggle("hidden", !isGo);
+  dom.goStatsRight.classList.toggle("hidden", !isGo);
+  dom.goStatsBar.classList.toggle("hidden", !isGo);
+  dom.boardWrap.classList.toggle("board-wrap--go", !!isGo);
+  if (!isGo || !snapshot.goStats) return;
+
+  const s = snapshot.goStats;
+
+  /* Black stats */
+  dom.gsBlackCaptures.textContent = s.blackCaptures;
+  dom.gsBlackTerritory.textContent = s.blackTerritory.toFixed(1);
+  dom.gsBlackScore.textContent = s.blackScore.toFixed(1);
+  dom.gsBlackGroups.textContent = s.blackGroups;
+  dom.gsBlackLargest.textContent = `${s.blackLargestGroup}子`;
+
+  /* White stats */
+  dom.gsWhiteCaptures.textContent = s.whiteCaptures;
+  dom.gsWhiteTerritory.textContent = s.whiteTerritory.toFixed(1);
+  dom.gsWhiteScore.textContent = s.whiteScore.toFixed(1);
+  dom.gsWhiteGroups.textContent = s.whiteGroups;
+  dom.gsWhiteLargest.textContent = `${s.whiteLargestGroup}子`;
+
+  /* Leader / score diff */
+  if (s.leader) {
+    const label = sideLabel(s.leader);
+    dom.gsLeader.textContent = `${label}领先 ${s.scoreDiff.toFixed(1)} 目`;
+  } else {
+    dom.gsLeader.textContent = "局面持平";
+  }
+
+  /* Who is this player? highlight sentinel stone */
+  const mySide = snapshot.yourSide;
+  dom.gsBlackSentinel.classList.toggle("go-stats-sentinel--active", mySide === "black" && snapshot.status === "playing" && snapshot.currentTurn === "black");
+  dom.gsWhiteSentinel.classList.toggle("go-stats-sentinel--active", mySide === "white" && snapshot.status === "playing" && snapshot.currentTurn === "white");
+}
+
 function render(snapshot) {
   const prevSnapshot = state.snapshot;
   state.snapshot = snapshot;
@@ -408,6 +463,7 @@ function render(snapshot) {
 
   updateRoomInfo(snapshot);
   renderBoard(snapshot);
+  renderGoStats(snapshot);
 
   if (snapshot) {
     setConnection("在线", "online");

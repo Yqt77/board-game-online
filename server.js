@@ -12,6 +12,7 @@ const {
   action,
   normalizeGameType,
   computeGobangAiMove,
+  computeGoAiMove,
 } = require("./game-logic");
 const { initDatabase, authenticateUser, dbStatus, logLoginAttempt, getLoginLogs } = require("./db");
 
@@ -351,6 +352,19 @@ function triggerAiMove(room) {
       if (room.status === "playing") {
         triggerAiMove(room);
       }
+    }
+  } else if (room.gameType === "go") {
+    const aiMove = computeGoAiMove(room.board, aiSide, room.history);
+    if (aiMove) {
+      move(room, aiSide, aiMove);
+      pushRoomState(room);
+      if (room.status === "playing") {
+        triggerAiMove(room);
+      }
+    } else {
+      /* No reasonable move found — pass */
+      action(room, aiSide, { action: "pass" });
+      pushRoomState(room);
     }
   }
 }
