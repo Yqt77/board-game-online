@@ -13,7 +13,7 @@ const {
   normalizeGameType,
   computeGobangAiMove,
 } = require("./game-logic");
-const { initDatabase, authenticateUser } = require("./db");
+const { initDatabase, authenticateUser, dbStatus } = require("./db");
 
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -472,6 +472,10 @@ function route(req, res) {
 
   if (req.method === "GET" && url.pathname === "/api/ping") {
     sendJson(res, 200, { ok: true, time: Date.now() });
+    return;
+  }
+  if (req.method === "GET" && url.pathname === "/api/db-status") {
+    dbStatus().then((status) => sendJson(res, 200, { ok: true, ...status }));
     return;
   }
 

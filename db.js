@@ -79,4 +79,19 @@ async function authenticateUser(username, password) {
   }
 }
 
-module.exports = { initDatabase, authenticateUser };
+async function dbStatus() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    return { connected: false, reason: "DATABASE_URL 未设置" };
+  }
+  const p = await getPool();
+  if (!p) return { connected: false, reason: "无法创建连接池" };
+  try {
+    await p.query("SELECT 1");
+    return { connected: true };
+  } catch (err) {
+    return { connected: false, reason: err.message };
+  }
+}
+
+module.exports = { initDatabase, authenticateUser, dbStatus };
